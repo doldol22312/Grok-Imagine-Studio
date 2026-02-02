@@ -11,6 +11,7 @@ import {
   Square,
   Trash2,
   Wand2,
+  X,
   XCircle,
 } from "lucide-react";
 import * as React from "react";
@@ -35,6 +36,7 @@ const MODEL = "grok-imagine-video";
 const IMAGE_MODEL = "grok-imagine-image";
 const ASPECT_RATIOS = ["16:9", "4:3", "1:1", "9:16", "3:4", "3:2", "2:3"] as const;
 const RESOLUTIONS = ["720p", "480p"] as const;
+const HISTORY_PAGE_SIZE = 10;
 
 type Studio = "video" | "image";
 type Mode = "generate" | "edit";
@@ -387,10 +389,13 @@ export function VideoStudio() {
 
   const [jobs, setJobs] = React.useState<VideoJob[]>([]);
   const [activeId, setActiveId] = React.useState<string>("");
+  const [historyPage, setHistoryPage] = React.useState(0);
   const [imageJobs, setImageJobs] = React.useState<ImageJob[]>([]);
   const [activeImageId, setActiveImageId] = React.useState<string>("");
+  const [imageHistoryPage, setImageHistoryPage] = React.useState(0);
   const [busy, setBusy] = React.useState(false);
   const [uiError, setUiError] = React.useState<string>("");
+  const apiKeysRef = React.useRef<HTMLDetailsElement | null>(null);
 
   const activeJob = React.useMemo(() => {
     if (!activeId) return jobs[0] ?? null;
@@ -421,6 +426,32 @@ export function VideoStudio() {
     if (!activeImageJob?.keyId) return null;
     return keys.find((k) => k.id === activeImageJob.keyId) ?? null;
   }, [activeImageJob?.keyId, keys]);
+
+  const videoHistoryTotalPages = Math.max(
+    1,
+    Math.ceil(jobs.length / HISTORY_PAGE_SIZE),
+  );
+  const videoHistoryPage = Math.min(
+    Math.max(historyPage, 0),
+    videoHistoryTotalPages - 1,
+  );
+  const videoHistoryJobs = jobs.slice(
+    videoHistoryPage * HISTORY_PAGE_SIZE,
+    (videoHistoryPage + 1) * HISTORY_PAGE_SIZE,
+  );
+
+  const imageHistoryTotalPages = Math.max(
+    1,
+    Math.ceil(imageJobs.length / HISTORY_PAGE_SIZE),
+  );
+  const imageHistoryPageSafe = Math.min(
+    Math.max(imageHistoryPage, 0),
+    imageHistoryTotalPages - 1,
+  );
+  const imageHistoryJobs = imageJobs.slice(
+    imageHistoryPageSafe * HISTORY_PAGE_SIZE,
+    (imageHistoryPageSafe + 1) * HISTORY_PAGE_SIZE,
+  );
 
   React.useEffect(() => {
     try {
@@ -623,6 +654,13 @@ export function VideoStudio() {
   }, [jobs]);
 
   React.useEffect(() => {
+    setHistoryPage((prev) => {
+      const maxPage = Math.max(0, Math.ceil(jobs.length / HISTORY_PAGE_SIZE) - 1);
+      return Math.min(prev, maxPage);
+    });
+  }, [jobs.length]);
+
+  React.useEffect(() => {
     try {
       const serialized = imageJobs.slice(0, 25).map((job) => {
         const { raw, images, ...rest } = job;
@@ -637,6 +675,16 @@ export function VideoStudio() {
       // ignore
     }
   }, [imageJobs]);
+
+  React.useEffect(() => {
+    setImageHistoryPage((prev) => {
+      const maxPage = Math.max(
+        0,
+        Math.ceil(imageJobs.length / HISTORY_PAGE_SIZE) - 1,
+      );
+      return Math.min(prev, maxPage);
+    });
+  }, [imageJobs.length]);
 
   React.useEffect(() => {
     try {
@@ -1019,6 +1067,10 @@ export function VideoStudio() {
     setImageFile(null);
   }
 
+  function closeApiKeys() {
+    apiKeysRef.current?.removeAttribute("open");
+  }
+
   function getImageEditInput() {
     const url = imageUrl.trim();
     if (url) return { kind: "url" as const, url, source: url };
@@ -1134,6 +1186,7 @@ export function VideoStudio() {
 
           setJobs((prev) => [job, ...prev].slice(0, 25));
           setActiveId(requestId);
+          setHistoryPage(0);
           return;
         }
 
@@ -1278,6 +1331,7 @@ export function VideoStudio() {
 
           setImageJobs((prev) => [job, ...prev].slice(0, 25));
           setActiveImageId(job.id);
+          setImageHistoryPage(0);
 
           if (error) setUiError(error);
           return;
@@ -1458,6 +1512,7 @@ export function VideoStudio() {
   function clearHistory() {
     setJobs([]);
     setActiveId("");
+    setHistoryPage(0);
     setUiError("");
     try {
       localStorage.removeItem(STORAGE_KEY);
@@ -1469,6 +1524,7 @@ export function VideoStudio() {
   function clearImageHistory() {
     setImageJobs([]);
     setActiveImageId("");
+    setImageHistoryPage(0);
     setUiError("");
     try {
       localStorage.removeItem(IMAGE_STORAGE_KEY);
@@ -1899,12 +1955,43 @@ export function VideoStudio() {
                 </div>
               )}
 
-              <details className="rounded-2xl border border-zinc-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-950">
+              <details
+                ref={apiKeysRef}
+                className="rounded-2xl border border-zinc-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-950"
+              >
                 <summary className="cursor-pointer select-none text-sm font-semibold text-zinc-900 dark:text-zinc-100">
                   API keys (local)
                 </summary>
 
-                <div className="mt-3 grid gap-4 text-xs text-zinc-600 dark:text-zinc-400">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                  <button
+                    type="button"
+                    className="absolute inset-0 bg-black/40"
+                    onClick={closeApiKeys}
+                    aria-label="Close API keys"
+                  />
+                  <div className="relative w-full max-w-2xl rounded-2xl border border-zinc-200 bg-white shadow-xl dark:border-zinc-800 dark:bg-zinc-950">
+                    <div className="flex items-start justify-between gap-3 border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
+                      <div className="grid gap-0.5">
+                        <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                          API keys (local)
+                        </div>
+                        <div className="text-xs text-zinc-600 dark:text-zinc-400">
+                          {enabledKeys.length} enabled · {keys.length} saved
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={closeApiKeys}
+                        aria-label="Close API keys"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+
+                    <div className="max-h-[70vh] overflow-y-auto overflow-x-hidden px-4 py-4 text-xs text-zinc-600 overscroll-contain dark:text-zinc-400">
                   <p>
                     Keys are stored in your browser{" "}
                     <span className="font-mono">localStorage</span> and sent to
@@ -2057,7 +2144,7 @@ export function VideoStudio() {
                                   {maskKey(k.key)}
                                 </div>
                                 {k.lastError && (
-                                  <div className="truncate text-xs text-red-700 dark:text-red-200">
+                                  <div className="line-clamp-3 break-words text-xs text-red-700 dark:text-red-200">
                                     {k.lastError}
                                   </div>
                                 )}
@@ -2130,6 +2217,8 @@ export function VideoStudio() {
                         </div>
                       </div>
                     </details>
+                  </div>
+                    </div>
                   </div>
                 </div>
               </details>
@@ -2506,13 +2595,44 @@ export function VideoStudio() {
                     <div className="grid gap-2">
                       <div className="flex items-center justify-between gap-3">
                         <h3 className="text-sm font-semibold">History</h3>
-                        <span className="text-xs text-zinc-500 dark:text-zinc-500">
-                          {jobs.length} saved
-                        </span>
+                        <div className="flex flex-wrap items-center justify-end gap-2 text-xs text-zinc-500 dark:text-zinc-500">
+                          <span>{jobs.length} saved</span>
+                          {videoHistoryTotalPages > 1 && (
+                            <div className="flex items-center gap-1">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                onClick={() =>
+                                  setHistoryPage((prev) => Math.max(0, prev - 1))
+                                }
+                                disabled={videoHistoryPage === 0}
+                              >
+                                Prev
+                              </Button>
+                              <span className="px-1 font-mono text-xs">
+                                {videoHistoryPage + 1}/{videoHistoryTotalPages}
+                              </span>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                onClick={() =>
+                                  setHistoryPage((prev) =>
+                                    Math.min(videoHistoryTotalPages - 1, prev + 1),
+                                  )
+                                }
+                                disabled={videoHistoryPage >= videoHistoryTotalPages - 1}
+                              >
+                                Next
+                              </Button>
+                            </div>
+                          )}
+                        </div>
                       </div>
 
                       <div className="grid gap-2">
-                        {jobs.map((j) => (
+                        {videoHistoryJobs.map((j) => (
                           <button
                             key={j.requestId}
                             type="button"
@@ -2558,13 +2678,44 @@ export function VideoStudio() {
                     <div className="grid gap-2">
                       <div className="flex items-center justify-between gap-3">
                         <h3 className="text-sm font-semibold">History</h3>
-                        <span className="text-xs text-zinc-500 dark:text-zinc-500">
-                          {imageJobs.length} saved
-                        </span>
+                        <div className="flex flex-wrap items-center justify-end gap-2 text-xs text-zinc-500 dark:text-zinc-500">
+                          <span>{imageJobs.length} saved</span>
+                          {imageHistoryTotalPages > 1 && (
+                            <div className="flex items-center gap-1">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                onClick={() =>
+                                  setImageHistoryPage((prev) => Math.max(0, prev - 1))
+                                }
+                                disabled={imageHistoryPageSafe === 0}
+                              >
+                                Prev
+                              </Button>
+                              <span className="px-1 font-mono text-xs">
+                                {imageHistoryPageSafe + 1}/{imageHistoryTotalPages}
+                              </span>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                onClick={() =>
+                                  setImageHistoryPage((prev) =>
+                                    Math.min(imageHistoryTotalPages - 1, prev + 1),
+                                  )
+                                }
+                                disabled={imageHistoryPageSafe >= imageHistoryTotalPages - 1}
+                              >
+                                Next
+                              </Button>
+                            </div>
+                          )}
+                        </div>
                       </div>
 
                       <div className="grid gap-2">
-                        {imageJobs.map((j) => (
+                        {imageHistoryJobs.map((j) => (
                           <button
                             key={j.id}
                             type="button"
