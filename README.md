@@ -1,6 +1,7 @@
-Grok Imagine Studio — a clean UI for xAI's video + image generation/edit APIs.
+### Grok Imagine Studio — a clean UI for xAI's video + image generation/edit APIs.
 
-<img width="1671" height="1394" alt="image" src="https://github.com/user-attachments/assets/ba398b78-8b96-4ac5-a074-02aa36ec2bf7" />
+<img width="1702" height="1381" alt="image" src="https://github.com/user-attachments/assets/9afb60d9-75ea-42ab-92ce-454aa1a0eccb" />
+
 
 ## ✨ Features
 
