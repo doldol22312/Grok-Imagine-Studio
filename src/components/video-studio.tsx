@@ -1745,10 +1745,6 @@ export function VideoStudio() {
                         <img src={imageUrl} alt="Reference" className="h-auto w-full" />
                       </div>
                     ) : null}
-
-                    <p className="text-xs text-zinc-600 dark:text-zinc-400">
-                      Tip: try “animate the provided image, preserve the subject and style”.
-                    </p>
                   </div>
                 ) : (
                   <div className="grid gap-2">
