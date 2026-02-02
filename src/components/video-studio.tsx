@@ -660,7 +660,19 @@ export function VideoStudio() {
 
   React.useEffect(() => {
     if (!activeRequestId || activeStatus !== "processing") return;
-    if (activeKeyId && !activeApiKey) return;
+    if (!activeKeyId) {
+      const msg = "Missing API key for this job. Re-add it in API keys (local).";
+      setJobs((prev) =>
+        prev.map((j) =>
+          j.requestId === activeRequestId
+            ? { ...j, status: "error", error: msg }
+            : j,
+        ),
+      );
+      setUiError(msg);
+      return;
+    }
+    if (!activeApiKey) return;
 
     let cancelled = false;
     const requestId = activeRequestId;
@@ -672,7 +684,7 @@ export function VideoStudio() {
           `/api/video/status/${encodeURIComponent(requestId)}`,
           {
             cache: "no-store",
-            headers: apiKey ? { "x-xai-api-key": apiKey } : undefined,
+            headers: { "x-xai-api-key": apiKey },
           },
         );
 
@@ -1037,19 +1049,24 @@ export function VideoStudio() {
     }
 
     const pool = enabledKeys;
+    if (pool.length === 0) {
+      setUiError("Add an API key in API keys (local) first.");
+      return;
+    }
     let rr = rotationIndex;
 
     setBusy(true);
     try {
-      const imageInput = mode === "generate" ? imageUrl.trim() : "";
-      const imageHint = imageUrl.trim();
-
-      if (mode === "generate" && !imageInput && imageDataUrl.trim()) {
-        setUiError(
-          "Video generation requires a public image URL (uploads are local-only).",
-        );
-        return;
-      }
+      const imageUrlInput = mode === "generate" ? imageUrl.trim() : "";
+      const imageDataInput = mode === "generate" ? imageDataUrl.trim() : "";
+      const imageInput = imageUrlInput || imageDataInput;
+      const imageHint = imageUrlInput
+        ? imageUrlInput
+        : imageFile
+          ? `upload:${imageFile.name || imageFileName || "image"}`
+          : imageDataInput
+            ? "upload:image"
+            : "";
 
       const payload: Record<string, unknown> = {
         mode,
@@ -1173,6 +1190,10 @@ export function VideoStudio() {
     }
 
     const pool = enabledKeys;
+    if (pool.length === 0) {
+      setUiError("Add an API key in API keys (local) first.");
+      return;
+    }
     let rr = rotationIndex;
 
     setBusy(true);
@@ -1321,7 +1342,7 @@ export function VideoStudio() {
     if (!activeJob) return;
     setUiError("");
 
-    if (activeJob.keyId && !activeApiKey) {
+    if (!activeApiKey) {
       setUiError("Missing API key for this job. Re-add it in API keys (local).");
       return;
     }
@@ -1331,7 +1352,7 @@ export function VideoStudio() {
         `/api/video/status/${encodeURIComponent(activeJob.requestId)}`,
         {
           cache: "no-store",
-          headers: activeApiKey ? { "x-xai-api-key": activeApiKey } : undefined,
+          headers: { "x-xai-api-key": activeApiKey },
         },
       );
 
@@ -1629,18 +1650,40 @@ export function VideoStudio() {
                         setImageFileName("");
                         setImageFile(null);
                       }}
-                      placeholder="https://… (direct, publicly accessible .jpg/.png)"
+                      placeholder="https://… (public URL) or upload below"
                       disabled={busy}
                     />
 
-                    {imageDataUrl && (
-                      <p className="text-xs text-amber-700 dark:text-amber-200">
-                        Uploads are only supported for image edits. For video generation,
-                        paste a public image URL.
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => onPickImage(e.target.files?.[0])}
+                      disabled={busy}
+                      className={cn(
+                        "w-full cursor-pointer rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-700 shadow-sm transition",
+                        "file:mr-3 file:rounded-lg file:border-0 file:bg-zinc-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-zinc-900",
+                        "hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-200 dark:file:bg-zinc-900 dark:file:text-zinc-50 dark:hover:bg-zinc-900",
+                      )}
+                    />
+
+                    {(imageDataUrl || imageUrl.trim()) && (
+                      <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                        {imageDataUrl
+                          ? `Using upload: ${imageFileName || "image"} (sent as base64)`
+                          : "Using image URL"}
                       </p>
                     )}
 
-                    {imageUrl.trim() ? (
+                    {imageDataUrl ? (
+                      <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={imageDataUrl}
+                          alt="Reference"
+                          className="h-auto w-full"
+                        />
+                      </div>
+                    ) : imageUrl.trim() ? (
                       <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={imageUrl} alt="Reference" className="h-auto w-full" />
@@ -1865,8 +1908,8 @@ export function VideoStudio() {
                   <p>
                     Keys are stored in your browser{" "}
                     <span className="font-mono">localStorage</span> and sent to
-                    the server per request. For shared deployments, prefer{" "}
-                    <span className="font-mono">.env.local</span>.
+                    the server per request.{" "}
+                    Don&apos;t store keys in the client for shared deployments.
                   </p>
 
                   <div className="grid gap-3">
@@ -1955,7 +1998,7 @@ export function VideoStudio() {
                           Rotation:{" "}
                           {enabledKeys.length > 0
                             ? `${enabledKeys.length} enabled (round‑robin)`
-                            : "no local keys (server env key)"}
+                            : "no enabled keys (add one below)"}
                         </span>
                         {nextKey && (
                           <span className="font-mono">
@@ -2243,7 +2286,7 @@ export function VideoStudio() {
                             ? `${activeKeyEntry.label} (${maskKey(activeKeyEntry.key)})`
                             : activeJob.keyId
                               ? "missing (re-add key)"
-                              : "server env key"}
+                              : "missing (add a key)"}
                         </span>
                       </div>
                     </div>
@@ -2394,7 +2437,7 @@ export function VideoStudio() {
                           ? `${activeImageKeyEntry.label} (${maskKey(activeImageKeyEntry.key)})`
                           : activeImageJob.keyId
                             ? "missing (re-add key)"
-                            : "server env key"}
+                            : "missing (add a key)"}
                       </span>
                     </div>
                   </div>
@@ -2564,9 +2607,8 @@ export function VideoStudio() {
         </main>
 
         <footer className="mt-8 text-xs text-zinc-500 dark:text-zinc-500">
-          Tip: add <span className="font-mono">XAI_API_KEY</span> to{" "}
-          <span className="font-mono">.env.local</span>, then run{" "}
-          <span className="font-mono">npm run dev</span>.
+          Tip: add an API key under{" "}
+          <span className="font-semibold">API keys</span> to start generating.
         </footer>
       </div>
     </div>

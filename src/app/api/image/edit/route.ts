@@ -38,6 +38,12 @@ function normalizeImageUrl(value: string): string {
 
 export async function POST(req: Request) {
   const apiKeyHeader = req.headers.get("x-xai-api-key")?.trim() || undefined;
+  if (!apiKeyHeader) {
+    return NextResponse.json(
+      { error: "Missing xAI API key (x-xai-api-key)." },
+      { status: 401 },
+    );
+  }
   const contentType = req.headers.get("content-type") ?? "";
 
   if (contentType.includes("multipart/form-data")) {

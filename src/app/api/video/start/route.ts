@@ -36,6 +36,12 @@ const StartVideoSchema = z
 
 export async function POST(req: Request) {
   const apiKeyHeader = req.headers.get("x-xai-api-key")?.trim() || undefined;
+  if (!apiKeyHeader) {
+    return NextResponse.json(
+      { error: "Missing xAI API key (x-xai-api-key)." },
+      { status: 401 },
+    );
+  }
 
   let body: unknown;
   try {

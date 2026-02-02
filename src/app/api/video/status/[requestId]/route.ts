@@ -10,6 +10,12 @@ export async function GET(
 ) {
   const { requestId } = await params;
   const apiKeyHeader = _req.headers.get("x-xai-api-key")?.trim() || undefined;
+  if (!apiKeyHeader) {
+    return NextResponse.json(
+      { error: "Missing xAI API key (x-xai-api-key)." },
+      { status: 401 },
+    );
+  }
 
   let upstream: Awaited<ReturnType<typeof xaiFetchJson>>;
   try {

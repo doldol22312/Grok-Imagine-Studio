@@ -1,7 +1,6 @@
 import { z } from "zod";
 
 const XaiEnvSchema = z.object({
-  XAI_API_KEY: z.string().min(1).optional(),
   XAI_BASE_URL: z.string().min(1).optional(),
 });
 
@@ -9,7 +8,6 @@ export type XaiEnv = z.infer<typeof XaiEnvSchema>;
 
 export function getXaiEnv(): XaiEnv {
   const parsed = XaiEnvSchema.safeParse({
-    XAI_API_KEY: process.env.XAI_API_KEY,
     XAI_BASE_URL: process.env.XAI_BASE_URL,
   });
 
@@ -37,10 +35,10 @@ export async function xaiFetchJson(
 ): Promise<{ ok: boolean; status: number; data: unknown }> {
   const env = getXaiEnv();
   const baseUrl = getXaiBaseUrl(env);
-  const apiKey = opts?.apiKey ?? env.XAI_API_KEY;
+  const apiKey = opts?.apiKey?.trim();
 
   if (!apiKey) {
-    throw new Error("Missing xAI API key. Set XAI_API_KEY or provide one.");
+    throw new Error("Missing xAI API key. Provide one via x-xai-api-key.");
   }
 
   const url = `${baseUrl}${path.startsWith("/") ? path : `/${path}`}`;
