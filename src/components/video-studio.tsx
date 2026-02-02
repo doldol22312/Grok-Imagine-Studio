@@ -2374,6 +2374,24 @@ export function VideoStudio() {
                               : "missing (add a key)"}
                         </span>
                       </div>
+                      <div className="grid gap-1.5 pt-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-zinc-600 dark:text-zinc-400">
+                            Prompt
+                          </span>
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-wider text-zinc-500 hover:text-zinc-900 dark:text-zinc-500 dark:hover:text-zinc-300"
+                            onClick={() => copyToClipboard(activeJob.prompt)}
+                          >
+                            <Copy className="h-3 w-3" />
+                            Copy
+                          </button>
+                        </div>
+                        <p className="max-h-32 overflow-y-auto whitespace-pre-wrap break-words rounded-xl border border-zinc-200 bg-zinc-50/50 px-3 py-2 text-xs leading-relaxed text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-300">
+                          {activeJob.prompt}
+                        </p>
+                      </div>
                     </div>
 
                     {activeJob.status === "processing" && (
@@ -2524,6 +2542,25 @@ export function VideoStudio() {
                             ? "missing (re-add key)"
                             : "missing (add a key)"}
                       </span>
+                    </div>
+
+                    <div className="grid gap-1.5 pt-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-zinc-600 dark:text-zinc-400">
+                          Prompt
+                        </span>
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-wider text-zinc-500 hover:text-zinc-900 dark:text-zinc-500 dark:hover:text-zinc-300"
+                          onClick={() => copyToClipboard(activeImageJob.prompt)}
+                        >
+                          <Copy className="h-3 w-3" />
+                          Copy
+                        </button>
+                      </div>
+                      <p className="max-h-32 overflow-y-auto whitespace-pre-wrap break-words rounded-xl border border-zinc-200 bg-zinc-50/50 px-3 py-2 text-xs leading-relaxed text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-300">
+                        {activeImageJob.prompt}
+                      </p>
                     </div>
                   </div>
 
