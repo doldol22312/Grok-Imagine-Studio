@@ -2752,11 +2752,6 @@ export function VideoStudio() {
             </CardContent>
           </Card>
         </main>
-
-        <footer className="mt-8 text-xs text-zinc-500 dark:text-zinc-500">
-          Tip: add an API key under{" "}
-          <span className="font-semibold">API keys</span> to start generating.
-        </footer>
       </div>
     </div>
   );
