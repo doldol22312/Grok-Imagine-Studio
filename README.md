@@ -10,8 +10,8 @@ Grok Imagine Studio — a clean UI for xAI's video + image generation/edit APIs.
 ### 🎬 Generation Modes
 *   🎬Prompt → Video:
 *   🎬Image → Video:
-    🖼️**Prompt → Image:** 
-    🖼️**Image → Image:** 
+*   🖼️**Prompt → Image:** 
+*   🖼️**Image → Image:** 
 
 ## 🚀 Getting Started
 
