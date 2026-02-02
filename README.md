@@ -16,13 +16,11 @@ Grok Imagine Studio — a clean UI for xAI's video + image generation/edit APIs.
 ## 🚀 Getting Started
 
 ### Installation
+```bash
 npm install
-
-# Build the project
 npm run build
-
-# Start the development server
 npm run dev
+```
 
 ## Usage
 ### Open your browser and navigate to:
