@@ -2512,7 +2512,7 @@ export function VideoStudio() {
                       </div>
 
                       <div className="grid gap-2">
-                        {jobs.slice(0, 8).map((j) => (
+                        {jobs.map((j) => (
                           <button
                             key={j.requestId}
                             type="button"
@@ -2564,7 +2564,7 @@ export function VideoStudio() {
                       </div>
 
                       <div className="grid gap-2">
-                        {imageJobs.slice(0, 8).map((j) => (
+                        {imageJobs.map((j) => (
                           <button
                             key={j.id}
                             type="button"
