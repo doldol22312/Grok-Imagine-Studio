@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { xaiFetchJson } from "@/lib/xai";
+import { updateJob } from "@/lib/storage";
 
 export const runtime = "nodejs";
 
@@ -38,10 +39,39 @@ export async function GET(
   }
 
   if (!upstream.ok) {
+    await updateJob("video", requestId, {
+      status: "error",
+      error: upstream.data,
+    });
     return NextResponse.json(
       { error: upstream.data },
       { status: upstream.status },
     );
+  }
+
+  // Check if it has a video URL or failure state in the data
+  const data = upstream.data as any;
+  if (data && typeof data === "object") {
+    const state = data.status || data.state || data.phase || data.stage;
+    const isError = ["failed", "error", "errored", "canceled", "cancelled"].includes(String(state).toLowerCase());
+    
+    if (isError) {
+      await updateJob("video", requestId, {
+        status: "error",
+        error: data.error || data.message || `Request ${state}`,
+        raw: data
+      });
+    } else {
+      // Look for video URL
+      const hasUrl = data.url || data.video_url || data.output_url;
+      if (hasUrl) {
+        await updateJob("video", requestId, {
+          status: "ready",
+          videoUrl: hasUrl,
+          raw: data
+        });
+      }
+    }
   }
 
   return NextResponse.json(upstream.data);

@@ -2,8 +2,14 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { xaiFetchJson } from "@/lib/xai";
+import { saveJob } from "@/lib/storage";
+import crypto from "node:crypto";
 
 export const runtime = "nodejs";
+
+function createId() {
+  return crypto.randomUUID();
+}
 
 const UrlAssetSchema = z.object({
   url: z.string().min(1),
@@ -112,6 +118,31 @@ export async function POST(req: Request) {
       );
     }
 
+    const id = createId();
+    const resultData = upstream.data as any;
+    const images: string[] = [];
+    if (resultData && Array.isArray(resultData.data)) {
+      for (const item of resultData.data) {
+        if (item.url) images.push(item.url);
+        else if (item.b64_json) images.push(`data:image/png;base64,${item.b64_json}`);
+      }
+    }
+
+    await saveJob("image", id, {
+      id,
+      mode: "edit",
+      prompt,
+      createdAt: Date.now(),
+      status: images.length > 0 ? "ready" : "error",
+      inputs: {
+        response_format,
+        image_source: `upload:${file.name}`,
+      },
+      images,
+      error: images.length === 0 ? "No images returned" : undefined,
+      raw: resultData,
+    });
+
     return NextResponse.json(upstream.data);
   }
 
@@ -172,6 +203,31 @@ export async function POST(req: Request) {
   if (!upstream.ok) {
     return NextResponse.json({ error: upstream.data }, { status: upstream.status });
   }
+
+  const id = createId();
+  const resultData = upstream.data as any;
+  const images: string[] = [];
+  if (resultData && Array.isArray(resultData.data)) {
+    for (const item of resultData.data) {
+      if (item.url) images.push(item.url);
+      else if (item.b64_json) images.push(`data:image/png;base64,${item.b64_json}`);
+    }
+  }
+
+  await saveJob("image", id, {
+    id,
+    mode: "edit",
+    prompt: parsed.data.prompt,
+    createdAt: Date.now(),
+    status: images.length > 0 ? "ready" : "error",
+    inputs: {
+      response_format: parsed.data.response_format,
+      image_source: imageValue.length > 100 ? "upload:base64" : imageValue,
+    },
+    images,
+    error: images.length === 0 ? "No images returned" : undefined,
+    raw: resultData,
+  });
 
   return NextResponse.json(upstream.data);
 }

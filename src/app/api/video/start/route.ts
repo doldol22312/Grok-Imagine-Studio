@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { xaiFetchJson } from "@/lib/xai";
+import { saveJob } from "@/lib/storage";
 
 export const runtime = "nodejs";
 
@@ -121,6 +122,22 @@ export async function POST(req: Request) {
       { status: 502 },
     );
   }
+
+  await saveJob("video", requestId, {
+    requestId,
+    mode,
+    prompt: parsed.data.prompt,
+    createdAt: Date.now(),
+    status: "processing",
+    // We don't save the API key here for security
+    inputs: {
+      duration: mode === "generate" ? parsed.data.duration : undefined,
+      aspect_ratio: parsed.data.aspect_ratio,
+      resolution: parsed.data.resolution,
+      image_url: mode === "generate" ? (image?.url ?? image_url) : undefined,
+      video_url: mode === "edit" ? (video?.url ?? video_url) : undefined,
+    },
+  });
 
   return NextResponse.json({ request_id: requestId });
 }

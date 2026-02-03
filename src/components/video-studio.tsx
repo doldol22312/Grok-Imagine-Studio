@@ -397,6 +397,19 @@ export function VideoStudio() {
   const [uiError, setUiError] = React.useState<string>("");
   const apiKeysRef = React.useRef<HTMLDetailsElement | null>(null);
 
+  const fetchHistory = React.useCallback(async (type: "video" | "image") => {
+    try {
+      const res = await fetch(`/api/history?type=${type}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (type === "video") setJobs(data);
+        else setImageJobs(data);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
   const activeJob = React.useMemo(() => {
     if (!activeId) return jobs[0] ?? null;
     return jobs.find((j) => j.requestId === activeId) ?? jobs[0] ?? null;
@@ -454,104 +467,8 @@ export function VideoStudio() {
   );
 
   React.useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return;
-      const parsed = JSON.parse(raw) as unknown;
-      if (!Array.isArray(parsed)) return;
-      setJobs(parsed as VideoJob[]);
-      const firstProcessing = (parsed as VideoJob[]).find(
-        (j) => j.status === "processing",
-      );
-      if (firstProcessing) setActiveId(firstProcessing.requestId);
-    } catch {
-      // ignore
-    }
-
-    try {
-      const rawImages = localStorage.getItem(IMAGE_STORAGE_KEY);
-      if (rawImages) {
-        const parsedImages = JSON.parse(rawImages) as unknown;
-        if (Array.isArray(parsedImages)) {
-          const normalized: ImageJob[] = parsedImages
-            .map((value) => {
-              if (!value || typeof value !== "object") return null;
-              const record = value as Record<string, unknown>;
-
-              const id =
-                typeof record.id === "string" && record.id.length > 0
-                  ? record.id
-                  : createId();
-
-              const mode = record.mode === "edit" ? "edit" : "generate";
-
-              const prompt = typeof record.prompt === "string" ? record.prompt : "";
-              if (!prompt.trim()) return null;
-
-              const createdAt =
-                typeof record.createdAt === "number" ? record.createdAt : Date.now();
-
-              const status = record.status === "error" ? "error" : "ready";
-
-              const keyId =
-                typeof record.keyId === "string" && record.keyId.length > 0
-                  ? record.keyId
-                  : undefined;
-
-              const inputsRecord =
-                record.inputs && typeof record.inputs === "object"
-                  ? (record.inputs as Record<string, unknown>)
-                  : {};
-
-              const aspect_ratio =
-                typeof inputsRecord.aspect_ratio === "string" &&
-                (ASPECT_RATIOS as readonly string[]).includes(inputsRecord.aspect_ratio)
-                  ? (inputsRecord.aspect_ratio as (typeof ASPECT_RATIOS)[number])
-                  : undefined;
-
-              const response_format =
-                inputsRecord.response_format === "url" ||
-                inputsRecord.response_format === "b64_json"
-                  ? (inputsRecord.response_format as ResponseFormat)
-                  : undefined;
-
-              const image_source =
-                typeof inputsRecord.image_source === "string"
-                  ? inputsRecord.image_source
-                  : undefined;
-
-              const images = Array.isArray(record.images)
-                ? (record.images as unknown[])
-                    .map((v) => (typeof v === "string" ? v : null))
-                    .filter((v): v is string => v !== null)
-                    .slice(0, 6)
-                : undefined;
-
-              const error = typeof record.error === "string" ? record.error : undefined;
-
-              const entry: ImageJob = {
-                id,
-                mode,
-                prompt,
-                createdAt,
-                status,
-                keyId,
-                inputs: { aspect_ratio, response_format, image_source },
-                images,
-                error,
-              };
-
-              return entry;
-            })
-            .filter((value): value is ImageJob => value !== null);
-
-          setImageJobs(normalized);
-          if (normalized.length > 0) setActiveImageId(normalized[0].id);
-        }
-      }
-    } catch {
-      // ignore
-    }
+    fetchHistory("video");
+    fetchHistory("image");
 
     try {
       const rawKeys = localStorage.getItem(KEYS_STORAGE_KEY);
@@ -641,40 +558,11 @@ export function VideoStudio() {
   }, []);
 
   React.useEffect(() => {
-    try {
-      const serialized = jobs.slice(0, 25).map((job) => {
-        const { raw, ...rest } = job;
-        void raw;
-        return rest;
-      });
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(serialized));
-    } catch {
-      // ignore
-    }
-  }, [jobs]);
-
-  React.useEffect(() => {
     setHistoryPage((prev) => {
       const maxPage = Math.max(0, Math.ceil(jobs.length / HISTORY_PAGE_SIZE) - 1);
       return Math.min(prev, maxPage);
     });
   }, [jobs.length]);
-
-  React.useEffect(() => {
-    try {
-      const serialized = imageJobs.slice(0, 25).map((job) => {
-        const { raw, images, ...rest } = job;
-        void raw;
-        const safeImages =
-          images?.filter((value) => /^https?:\/\//i.test(value)).slice(0, 6) ??
-          undefined;
-        return { ...rest, images: safeImages };
-      });
-      localStorage.setItem(IMAGE_STORAGE_KEY, JSON.stringify(serialized));
-    } catch {
-      // ignore
-    }
-  }, [imageJobs]);
 
   React.useEffect(() => {
     setImageHistoryPage((prev) => {
@@ -1184,7 +1072,7 @@ export function VideoStudio() {
             },
           };
 
-          setJobs((prev) => [job, ...prev].slice(0, 25));
+          setJobs((prev) => [job, ...prev]);
           setActiveId(requestId);
           setHistoryPage(0);
           return;
@@ -1329,7 +1217,7 @@ export function VideoStudio() {
             error,
           };
 
-          setImageJobs((prev) => [job, ...prev].slice(0, 25));
+          setImageJobs((prev) => [job, ...prev]);
           setActiveImageId(job.id);
           setImageHistoryPage(0);
 
@@ -1509,25 +1397,25 @@ export function VideoStudio() {
     }
   }
 
-  function clearHistory() {
+  async function clearHistory() {
     setJobs([]);
     setActiveId("");
     setHistoryPage(0);
     setUiError("");
     try {
-      localStorage.removeItem(STORAGE_KEY);
+      await fetch("/api/history?type=video", { method: "DELETE" });
     } catch {
       // ignore
     }
   }
 
-  function clearImageHistory() {
+  async function clearImageHistory() {
     setImageJobs([]);
     setActiveImageId("");
     setImageHistoryPage(0);
     setUiError("");
     try {
-      localStorage.removeItem(IMAGE_STORAGE_KEY);
+      await fetch("/api/history?type=image", { method: "DELETE" });
     } catch {
       // ignore
     }

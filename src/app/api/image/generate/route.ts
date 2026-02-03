@@ -2,8 +2,14 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { xaiFetchJson } from "@/lib/xai";
+import { saveJob } from "@/lib/storage";
+import crypto from "node:crypto";
 
 export const runtime = "nodejs";
+
+function createId() {
+  return crypto.randomUUID();
+}
 
 const GenerateImageSchema = z.object({
   prompt: z.string().min(1, "Prompt is required"),
@@ -56,6 +62,31 @@ export async function POST(req: Request) {
   if (!upstream.ok) {
     return NextResponse.json({ error: upstream.data }, { status: upstream.status });
   }
+
+  const id = createId();
+  const data = upstream.data as any;
+  const images: string[] = [];
+  if (data && Array.isArray(data.data)) {
+    for (const item of data.data) {
+      if (item.url) images.push(item.url);
+      else if (item.b64_json) images.push(`data:image/png;base64,${item.b64_json}`);
+    }
+  }
+
+  await saveJob("image", id, {
+    id,
+    mode: "generate",
+    prompt: parsed.data.prompt,
+    createdAt: Date.now(),
+    status: images.length > 0 ? "ready" : "error",
+    inputs: {
+      aspect_ratio: parsed.data.aspect_ratio,
+      response_format: parsed.data.response_format,
+    },
+    images,
+    error: images.length === 0 ? "No images returned" : undefined,
+    raw: data,
+  });
 
   return NextResponse.json(upstream.data);
 }
